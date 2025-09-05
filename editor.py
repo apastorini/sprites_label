@@ -151,6 +151,22 @@ class SpritesheetSelectorApp:
     def on_press_left(self, event):
         if not self.project_data['spritesheet_path']:
             return
+
+        if not self.drawing_mode and not self.fixed_size_mode:
+            # Buscar si se ha hecho clic en un rectángulo existente
+            clicked_items = self.canvas.find_closest(event.x, event.y)
+            if clicked_items:
+                clicked_item = clicked_items[0]
+                # Buscar el sprite por su ID de rectángulo
+                for sprite_name, rect_id in self.rect_ids.items():
+                    if rect_id == clicked_item:
+                        # Resaltar el sprite en la lista
+                        self.select_sprite_in_listbox(sprite_name)
+                        # También puedes resaltar el rectángulo en el canvas
+                        self.canvas.itemconfig(rect_id, outline="blue")
+                        return
+
+        # Si no se hizo clic en un rectángulo existente o si estamos en modo de dibujo
         self.start_x = event.x
         self.start_y = event.y
         if self.current_rect_id:
@@ -158,6 +174,20 @@ class SpritesheetSelectorApp:
         if self.drawing_mode or self.fixed_size_mode:
             self.current_rect_id = self.canvas.create_rectangle(self.start_x, self.start_y, self.start_x, self.start_y,
                                                                 outline="red", width=2)
+
+    def select_sprite_in_listbox(self, sprite_name):
+        self.sprite_listbox.selection_clear(0, tk.END)
+        for i in range(self.sprite_listbox.size()):
+            item = self.sprite_listbox.get(i)
+            # Manejar tanto los títulos de animación como los nombres de sprites
+            if item == sprite_name:
+                self.sprite_listbox.selection_set(i)
+                self.sprite_listbox.see(i)  # Hacer scroll hasta el elemento
+                break
+            elif item.startswith("---") and f"--- Animación: {sprite_name.upper()} ---" == item:
+                self.sprite_listbox.selection_set(i)
+                self.sprite_listbox.see(i)
+                break
 
     def on_drag_left(self, event):
         if not self.project_data['spritesheet_path'] or not self.current_rect_id:
@@ -302,7 +332,6 @@ class SpritesheetSelectorApp:
             new_desc = desc_entry.get().strip()
             new_anim = anim_entry.get().strip()
 
-            # Reubicar el sprite si la animación o el nombre cambian
             is_new_name = new_name != sprite_data['name']
             is_new_anim = new_anim != sprite_data['animation']
 
@@ -320,7 +349,6 @@ class SpritesheetSelectorApp:
                     self.project_data['animations'][new_anim] = []
                 self.project_data['animations'][new_anim].append(sprite_data)
 
-                # Re-mapear el rect_id si el nombre cambió
                 if is_new_name:
                     rect_id = self.rect_ids.pop(sprite_data['name'])
                     self.rect_ids[new_name] = rect_id
@@ -360,7 +388,6 @@ class SpritesheetSelectorApp:
             sprite_data['animation'] = anim_name
             self.project_data['animations'][anim_name].append(sprite_data)
 
-        # Limpiar animaciones vacías
         self.project_data['animations'] = {k: v for k, v in self.project_data['animations'].items() if v}
         self.update_sprite_listbox()
         self.redraw_sprites()
@@ -369,7 +396,6 @@ class SpritesheetSelectorApp:
     def update_sprite_listbox(self):
         self.sprite_listbox.delete(0, tk.END)
         for anim_name, sprites_list in self.project_data['animations'].items():
-            # Título de la animación
             self.sprite_listbox.insert(tk.END, f"--- Animación: {anim_name.upper()} ---")
             for sprite in sprites_list:
                 self.sprite_listbox.insert(tk.END, sprite['name'])
